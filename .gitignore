@@ -3,6 +3,7 @@ auth.json
 database.json
 youtubeauth.json
 log.txt
+refresh.token
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
