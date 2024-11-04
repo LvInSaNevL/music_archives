@@ -10,17 +10,16 @@ import json
 import yt_dlp
 import eyed3
 import requests
+import os
 
 # The playlists to archive
-playlists = [#"PLRDuNIkwpnsd-BKflUccPeix9WfiKP8uQ",    # The Collection
-             #"PL95haX7i8VmjHe0xeTx6t6Qf-D1gGUjKP",    # The OG Grand Collab
-             #"PLRDuNIkwpnsdsAaytTIOtkaQGcsdy_fJH",    # The Grand Collab 2 
-             #"PLRDuNIkwpnscDITObEK5bxWzc2qxbppjn",    # Karaoke Playlist
-             #"LRYRTgzdv6NxbhrrYHZ2TOPlPNz94e0D5FZ11", # 2022 Recap
-             #"LRYR1j6Kis480O0A9sU3oEnYWtbMrr_tPocTq", # 2023 Recap
-             #"PLTYtECRlkGVW5f6ZCQ44PnJWWbZ6g51L8",     # TikTok Tour
-             #"PLRDuNIkwpnsc1Gvmt90PO3zV7XVQhu-sr",
-             "PLRDuNIkwpnsejsEmrc12a5K8mXmF9i5vX"
+playlists = ["PLRDuNIkwpnsd-BKflUccPeix9WfiKP8uQ",    # The Collection
+             "PL95haX7i8VmjHe0xeTx6t6Qf-D1gGUjKP",    # The OG Grand Collab
+             "PLRDuNIkwpnsdsAaytTIOtkaQGcsdy_fJH",    # The Grand Collab 2 
+             "PLRDuNIkwpnscDITObEK5bxWzc2qxbppjn",    # Karaoke Playlist
+             "LRYRTgzdv6NxbhrrYHZ2TOPlPNz94e0D5FZ11", # 2022 Recap
+             "LRYR1j6Kis480O0A9sU3oEnYWtbMrr_tPocTq", # 2023 Recap
+             "PLTYtECRlkGVW5f6ZCQ44PnJWWbZ6g51L8",     # TikTok Tour
             ]
 
 currentDB = []
@@ -81,28 +80,39 @@ def main():
                         "genre": lfmData['genre']
                     })
                 # Download the actual song
+                mp3Path = f'{systemPath}/{fmtSong['artist']['name']} - {fmtSong['title']}'
                 ydl_opts = {
                     'format': 'bestaudio',       
                     'extractaudio': True,          
                     'audioformat': 'mp3',          
-                    'outtmpl': f'{systemPath}/{fmtSong['artist']['name']} - {fmtSong['title']}.mp3'
+                    'outtmpl': mp3Path,
+                    'postprocessors': [{
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': 'mp3'
+                    }],
                 }
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     ydl.download(fmtSong["yt_id"])
                 # Sets the id3 tags
-                targetFile = eyed3.load(f'{systemPath}/{fmtSong['artist']['name']} - {fmtSong['title']}.mp3')
+                targetFile = eyed3.load(f'{mp3Path}.mp3')
+                if targetFile is None:
+                    print(f"Failed to load MP3 file: mp3Path")
+                    return
+                if targetFile.tag is None:
+                    targetFile.initTag()
                 targetFile.tag.artist = fmtSong['artist']['name']
-                targetFile.tag.album = fmtSong['album']['name']
-                targetFile.tag.title = fmtSong['title']
-                targetFile.tag.track_num = 3
-                targetFile.tag.save()                
+                targetFile.tag.album = fmtSong['album']['title']
+                targetFile.tag.title = fmtSong['title']    
                 # Download the thumbnail (if available)
-                if fmtSong["album"]['art'] is not "null":
-                    img_data = requests.get(fmtSong["album"]['art']).content
-                    with open(f"{systemPath}/{fmtSong['artist']['name']} - {fmtSong['album']['art']}.png", 'wb') as handler:
-                        handler.write(img_data)
-                    targetFile.tag.images.set(3, handler.read(), "image/jpeg")
-                    targetFile.tag.save()
+                if fmtSong["album"]['art'] != "null":
+                    artPath = f"{systemPath}/art/{fmtSong['artist']['name']} - {fmtSong['album']['title']}.png"
+                    if not os.path.exists(artPath):
+                        img_data = requests.get(fmtSong["album"]['art']).content
+                        with open(artPath, 'wb') as handler:
+                            handler.write(img_data)
+                    with open(artPath, 'rb') as img_file:
+                        targetFile.tag.images.set(3, img_file.read(), "image/png")
+                targetFile.tag.save()
                 # Adds the song to the database
                 currentDB.append(fmtSong)
     
