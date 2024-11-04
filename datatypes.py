@@ -20,10 +20,11 @@ def TitleCleaner(title, artist):
     # The things to remove
     filters = ["(Official Music Video)",
                "(Lyric Video)",
-               "(Official Video)"]
+               "(Official Video)",
+               "- "] # Keep this last
+    title = title.replace(artist, "").strip()
     for sF in filters:
-        title = title.replace(sF, "")
-    title = title.replace(artist, "")
+        title = title.replace(sF, "").strip()
     return title.strip()
 
 # Cleans up the artists name to get rid of junk
